@@ -46,7 +46,8 @@ void incoming_call_sms()
       timer = 0;
       EEPROM.update(2,1);
     }
-
+    
+    #ifdef USE_TIMER
     else if ((val.indexOf(MASTER) > -1 || val.indexOf(MASTER2) > -1) && val.indexOf("timer ") > -1)
       {
       String timerTmp = val.substring(54);
@@ -65,6 +66,7 @@ void incoming_call_sms()
         }
         val = "";
       }
+    #endif
 
     else if ((val.indexOf(MASTER) > -1 || val.indexOf(MASTER2) > -1) && val.indexOf("temper") > -1) //если СМС от хозяина и содержит текст запроса температуры
     {
@@ -74,6 +76,7 @@ void incoming_call_sms()
       val = "";
     }
 
+    #ifdef USE_TERMOSTAT
     else if ((val.indexOf(MASTER) > -1 || val.indexOf(MASTER2) > -1) && val.indexOf("termostat ") > -1)
       {
       String heatTmp = val.substring(58);
@@ -87,6 +90,7 @@ void incoming_call_sms()
         }
         val = "";
       }
+    #endif
       
     else if (val.indexOf("new master") > -1)
       {

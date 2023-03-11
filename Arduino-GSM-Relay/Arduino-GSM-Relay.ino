@@ -13,33 +13,38 @@
 то есть если если вы хотите сделать НОМЕР1 сделать первым мастером, то отправляем с него текст "new master" и этот номер станет первым мастер номером и по аналогии со вторым также.
 */
 
-//#define USE_readNumberSIM        // раскоментировать если нужна возможность чтения номера из СИМ карты
-
 #include <EEPROM.h>
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(2, 3);         // RX, TX
-
 #include <OneWire.h>
-OneWire sensDs (9);  // датчик подключен к выводу 9
-#define POWER_MODE  1 // режим питания, 0 - внешнее, 1 - паразитное
-byte bufData[9];  // буфер данных
-byte tmpFlag;
 
+// #define USE_readNumberSIM           // раскоментировать если нужна возможность чтения номера из СИМ карты
+// #define USE_TERMOSTAT               // закоментировать если не нужен термостат
+#define USE_TIMER                      // закоментировать если не нужен таймер
+
+//---------КОНТАКТЫ--------------
+#define power 12                       // пин реле
+#define powLED 6                       // индикация режима состояния модема M590
+#define LED 7                          // индикация состояния реле
+#define BUTTON 4                       // кнопка вкл/выкл розетки вручную
+#define heater 13                      // нагреватель (можно использовать керамический ресистор на 3-6к)
+#define ds18b20 13                      // датчик температуры DS18b20
+OneWire sensDs (ds18b20);                    // датчик подключен к выводу 9
+#define DS_POWER_MODE  1                  // режим питания, 0 - внешнее, 1 - паразитное
+//---------------------------------
+String MASTER = "79123456789";          // 1-й телефон владельца
+String MASTER2 = "79123456789";         // 2-й телефон владельца
 String val = "";
-String MASTER = "79245040526";          //телефон хозяина
-String MASTER2 = "79145277176";
-
-//---------------------------------
-#define power 12     // пин включения питания реле
-#define powLED 6     // индикация режима
-#define LED 7        // светодиод включения питания розетки
-#define BUTTON 4     // кнопка вкл/выкл розетки вручную
-#define heater 13    // нагреватель
-//---------------------------------
-boolean state = false;   // считываем состояние (вкл/выкл)
+boolean state = false;                  // состояние (вкл/выкл)
+#ifdef USE_TIMER
 uint32_t timer = 0;
 uint32_t curTime;
+#endif
+byte bufData[9];                        // буфер данных для считывания температуры с DS18B20
+#ifdef USE_TERMOSTAT
+byte tmpFlag;
 int8_t heaterVal = EEPROM.read(3);
+#endif
 
 //--------------------------------------------------------------
 // процедура отправки команд модему:
@@ -222,16 +227,16 @@ void update_master2_eeprom(int addr) {
 float currentTemper() {
     float temperature;  // измеренная температура
     sensDs.reset();  // сброс шины
-    sensDs.write(0xCC, POWER_MODE); // пропуск ROM
-    sensDs.write(0x44, POWER_MODE); // инициализация измерения
+    sensDs.write(0xCC, DS_POWER_MODE); // пропуск ROM
+    sensDs.write(0x44, DS_POWER_MODE); // инициализация измерения
     delay(900);  // пауза 0,9 сек
     sensDs.reset();  // сброс шины
-    sensDs.write(0xCC, POWER_MODE); // пропуск ROM 
-    sensDs.write(0xBE, POWER_MODE); // команда чтения памяти датчика 
+    sensDs.write(0xCC, DS_POWER_MODE); // пропуск ROM 
+    sensDs.write(0xBE, DS_POWER_MODE); // команда чтения памяти датчика 
     sensDs.read_bytes(bufData, 9);  // чтение памяти датчика, 9 байтов
     if ( OneWire::crc8(bufData, 8) == bufData[8] ) {  // проверка CRC
       // если данные правильные
-      temperature=  (float)((int)bufData[0] | (((int)bufData[1]) << 8)) * 0.0625 + 0.03125;
+      temperature =  (float)((int)bufData[0] | (((int)bufData[1]) << 8)) * 0.0625 + 0.03125;
       return temperature;
     }
 }
@@ -243,6 +248,7 @@ void loop()
   
   if (mySerial.available()) incoming_call_sms();          //есть данные от GSM модуля
   
+  #ifdef USE_TERMOSTAT
   if(heaterVal != 0 && millis()-curTime>30000) {
     if(currentTemper() <= heaterVal && tmpFlag == false) {
       digitalWrite(heater,HIGH);
@@ -255,7 +261,9 @@ void loop()
     curTime=millis();
     //Serial.println(currentTemper());
   }
-  
+  #endif
+
+  #ifdef USE_TIMER
   if(timer != 0) {
     if(timer <= millis()) {
       digitalWrite(power, LOW);
@@ -266,6 +274,7 @@ void loop()
       EEPROM.update(2,1);
      }
   }
+  #endif
 }
 
 //------------------------------------------------------------------------------------------
